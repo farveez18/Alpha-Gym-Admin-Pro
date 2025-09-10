@@ -1,0 +1,7 @@
+{
+  "name": "Alpha Gym Admin Pro",
+  "description": "A comprehensive gym administration application for single gym owners to manage members, track revenue, and handle payments, designed with an Android-like interface.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
