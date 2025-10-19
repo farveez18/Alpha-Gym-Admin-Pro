@@ -1,5 +1,5 @@
 
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import type { Member, GymProfile, View, AppData, MembershipPlan } from './types';
 // FIX: Import 'getDummyMembers' from './constants'
 import { INITIAL_MEMBERSHIP_PLANS, INITIAL_GYM_PROFILE, getDummyMembers } from './constants';
@@ -33,10 +33,39 @@ const App: React.FC = () => {
 
   const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null);
   const [expiringDaysFilter, setExpiringDaysFilter] = useState<number | null>(null);
+  const [installPrompt, setInstallPrompt] = useState<Event | null>(null);
+
+  useEffect(() => {
+    const handleBeforeInstallPrompt = (e: Event) => {
+        e.preventDefault();
+        setInstallPrompt(e);
+    };
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    return () => {
+        window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    };
+  }, []);
+
+  const handleAppInstall = () => {
+      if (!installPrompt) return;
+      (installPrompt as any).prompt();
+      // The prompt can only be used once. Clear it.
+      setInstallPrompt(null);
+  };
 
   const handleAddMember = useCallback((newMember: Member) => {
     setAppData(prev => ({ ...prev, members: { ...prev.members, [newMember.id]: newMember } }));
     setView('members');
+  }, [setAppData]);
+
+  const handleDeleteMember = useCallback((memberId: string) => {
+    setAppData(prev => {
+      const newMembers = { ...prev.members };
+      delete newMembers[memberId];
+      return { ...prev, members: newMembers };
+    });
+    setView('members');
+    setSelectedMemberId(null);
   }, [setAppData]);
 
   const handleUpdateMember = useCallback((updatedMember: Member) => {
@@ -92,12 +121,12 @@ const App: React.FC = () => {
         return <AddMember onAddMember={handleAddMember} members={membersArray} plans={plans} gymProfile={gymProfile} />;
       case 'memberDetail':
         if (selectedMember) {
-          return <MemberDetail member={selectedMember} onUpdateMember={handleUpdateMember} gymProfile={gymProfile} plans={plans} />;
+          return <MemberDetail member={selectedMember} onUpdateMember={handleUpdateMember} onDeleteMember={handleDeleteMember} gymProfile={gymProfile} plans={plans} />;
         }
         setView('members'); 
         return null;
       case 'profile':
-        return <Profile profile={gymProfile} onSave={handleSaveProfile} />;
+        return <Profile profile={gymProfile} onSave={handleSaveProfile} onInstall={installPrompt ? handleAppInstall : null} />;
       case 'pricing':
         return <Pricing plans={plans} onSave={handleUpdatePlans} />;
        case 'payments':
@@ -133,7 +162,7 @@ const App: React.FC = () => {
   return (
     <div className="h-screen w-screen bg-black text-white font-poppins flex flex-col max-w-md mx-auto shadow-2xl shadow-red-900/50">
       <Header title={getHeaderTitle()} showBack={showBackButton} onBack={handleBack} onProfileClick={() => setView('profile')} />
-      <main className="flex-1 overflow-y-auto p-4 pb-20">
+      <main className="flex-1 overflow-y-auto p-4 pb-24">
         {renderContent()}
       </main>
       <BottomNav activeView={view} setView={setView} />

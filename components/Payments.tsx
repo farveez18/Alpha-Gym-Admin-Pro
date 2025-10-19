@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import type { Member, MembershipPlan, Payment } from '../types';
+import { PaymentMode } from '../types';
 import { formatCurrency, formatDate } from '../utils/helpers';
 import DownloadIcon from './icons/DownloadIcon';
 
@@ -77,6 +78,22 @@ const Payments: React.FC<PaymentsProps> = ({ members, plans }) => {
     return yearFiltered.filter(payment => new Date(payment.date).getMonth() === selectedMonth);
   }, [allPayments, selectedMonth, selectedYear]);
 
+  const paymentTotals = useMemo(() => {
+    return filteredPayments.reduce(
+      (totals, payment) => {
+        totals.grandTotal += payment.amount;
+        if (payment.mode === PaymentMode.UPI) {
+          totals.upiTotal += payment.amount;
+        } else if (payment.mode === PaymentMode.CASH) {
+          totals.cashTotal += payment.amount;
+        }
+        return totals;
+      },
+      { grandTotal: 0, upiTotal: 0, cashTotal: 0 }
+    );
+  }, [filteredPayments]);
+
+
   const totalRevenueForSelectedYear = useMemo(() => monthlyRevenue.reduce((a, b) => a + b, 0), [monthlyRevenue]);
   
   const getFilenameAndTitle = () => {
@@ -101,7 +118,14 @@ const Payments: React.FC<PaymentsProps> = ({ members, plans }) => {
       return [p.id, formatDate(p.date), p.memberId, memberName, plan ? plan.name : 'N/A', p.amount, p.mode].join(',');
     });
     
-    const csvContent = "data:text/csv;charset=utf-8," + [headers.join(','), ...rows].join('\n');
+    const totalsRows = [
+      '', // empty line
+      `"","","","","Grand Total","${paymentTotals.grandTotal}",""`,
+      `"","","","","UPI Total (GPay, etc)","${paymentTotals.upiTotal}",""`,
+      `"","","","","Cash Total","${paymentTotals.cashTotal}",""`
+    ];
+
+    const csvContent = "data:text/csv;charset=utf-8," + [headers.join(','), ...rows, ...totalsRows].join('\n');
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
     link.setAttribute("href", encodedUri);
@@ -140,6 +164,27 @@ const Payments: React.FC<PaymentsProps> = ({ members, plans }) => {
       body: tableRows,
       startY: 22,
       theme: 'grid'
+    });
+
+    const finalY = (doc as any).lastAutoTable.finalY;
+    doc.setFontSize(12);
+    doc.text('Summary', 14, finalY + 15);
+    
+    const summaryData = [
+        ['Grand Total:', formatCurrency(paymentTotals.grandTotal)],
+        ['UPI Total (GPay, etc):', formatCurrency(paymentTotals.upiTotal)],
+        ['Cash Total:', formatCurrency(paymentTotals.cashTotal)]
+    ];
+
+    (doc as any).autoTable({
+        body: summaryData,
+        startY: finalY + 18,
+        theme: 'plain',
+        tableWidth: 'wrap',
+        styles: { cellPadding: 1.5, fontSize: 10 },
+        columnStyles: {
+            0: { fontStyle: 'bold' }
+        }
     });
     
     doc.save(`${filename}.pdf`);

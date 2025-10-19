@@ -77,6 +77,7 @@ const MembersList: React.FC<MembersListProps> = ({ members, onSelectMember }) =>
         <input
           type="text"
           placeholder="Search by name, phone, or ID..."
+          aria-label="Search members"
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
           className="w-full bg-zinc-800 border border-zinc-700 rounded-lg py-2 pl-10 pr-4 text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-red-500"

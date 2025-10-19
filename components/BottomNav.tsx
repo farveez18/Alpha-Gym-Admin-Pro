@@ -1,3 +1,4 @@
+
 import React from 'react';
 import type { View } from '../types';
 import HomeIcon from './icons/HomeIcon';
@@ -35,7 +36,7 @@ const NavButton: React.FC<{
 
 const BottomNav: React.FC<BottomNavProps> = ({ activeView, setView }) => {
   return (
-    <nav className="absolute bottom-0 left-0 right-0 bg-zinc-900 flex justify-around border-t border-zinc-800 shadow-lg max-w-md mx-auto">
+    <nav className="bg-zinc-900 flex justify-around border-t border-zinc-800 shadow-lg">
       <NavButton label="Dashboard" view="dashboard" activeView={activeView} setView={setView}>
         <HomeIcon className="w-6 h-6 mb-1" />
       </NavButton>

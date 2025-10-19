@@ -29,10 +29,9 @@ export const getDaysUntilExpiry = (expiryDate: string): number => {
     return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 }
 
-export const generateNextMemberId = (members: Member[]): string => {
-  const now = new Date();
-  const year = now.getFullYear().toString().slice(-2); // e.g., '24'
-  const prefix = `A${year}`;
+export const generateNextMemberId = (members: Member[], joinDate: string): string => {
+  const joinYear = new Date(joinDate).getFullYear().toString().slice(-2);
+  const prefix = `A${joinYear}`;
 
   const currentYearMembers = members.filter(m => m.memberId && m.memberId.startsWith(prefix));
 

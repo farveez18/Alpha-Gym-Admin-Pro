@@ -1,16 +1,10 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import type { Member, MembershipPlan, GymProfile } from '../types';
 import { PaymentMode } from '../types';
 import { calculateExpiryDate, generateNextMemberId } from '../utils/helpers';
-import { DEFAULT_AVATAR_URL } from '../constants';
+import { DEFAULT_AVATAR_URL, ENTRY_FEE } from '../constants';
 import CameraIcon from './icons/CameraIcon';
-
-// Add QR Code to global window object for TypeScript
-declare global {
-  interface Window {
-    QRCode: any;
-  }
-}
 
 interface AddMemberProps {
   onAddMember: (member: Member) => void;
@@ -24,44 +18,28 @@ const AddMember: React.FC<AddMemberProps> = ({ onAddMember, members, plans, gymP
   const [phone, setPhone] = useState('+91');
   const [email, setEmail] = useState('');
   const [joinDate, setJoinDate] = useState(new Date().toISOString().split('T')[0]); // YYYY-MM-DD format
+  const [memberId, setMemberId] = useState('');
   const [planId, setPlanId] = useState(plans[0].id);
   const [paymentMode, setPaymentMode] = useState<PaymentMode>(PaymentMode.UPI);
   const [photoUrl, setPhotoUrl] = useState<string>(DEFAULT_AVATAR_URL);
-  const [upiLink, setUpiLink] = useState('');
   
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const qrCodeRef = useRef<HTMLCanvasElement>(null);
   
-  const ENTRY_FEE = 200;
-
   const selectedPlan = plans.find(p => p.id === planId);
   const totalAmount = (selectedPlan?.price || 0) + ENTRY_FEE;
+
+  // Effect to auto-generate member ID based on join date
+  useEffect(() => {
+    if (joinDate) {
+      const joinDateObj = new Date(joinDate);
+      const newMemberId = generateNextMemberId(members, joinDateObj.toISOString());
+      setMemberId(newMemberId);
+    }
+  }, [joinDate, members]);
 
   const handlePaymentModeChange = (mode: PaymentMode) => {
     setPaymentMode(mode);
   };
-
-  // Effect 1: Generate the UPI link string whenever dependencies change
-  useEffect(() => {
-    if (paymentMode === PaymentMode.UPI && gymProfile.upiId) {
-        const payeeName = "Alpha Gym";
-        const notes = `New member registration for ${name || 'New Member'}`;
-        const newUpiLink = `upi://pay?pa=${gymProfile.upiId}&pn=${encodeURIComponent(payeeName)}&am=${totalAmount}&cu=INR&tn=${encodeURIComponent(notes)}`;
-        setUpiLink(newUpiLink);
-    } else {
-        setUpiLink('');
-    }
-  }, [paymentMode, planId, name, gymProfile.upiId, totalAmount]);
-
-  // Effect 2: Draw the QR code whenever the upiLink string is ready and the canvas is available
-  useEffect(() => {
-    if (upiLink && qrCodeRef.current && window.QRCode) {
-        window.QRCode.toCanvas(qrCodeRef.current, upiLink, { width: 220, margin: 1 }, (error: any) => {
-            if (error) console.error("QR Code generation failed:", error);
-        });
-    }
-  }, [upiLink]);
-
 
   const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -70,13 +48,14 @@ const AddMember: React.FC<AddMemberProps> = ({ onAddMember, members, plans, gymP
       reader.onloadend = () => {
         setPhotoUrl(reader.result as string);
       };
+      // FIX: Corrected method name from readDataURL to readAsDataURL.
       reader.readAsDataURL(file);
     }
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name || !phone || !planId) {
+    if (!name || !phone || !planId || !memberId) {
       alert('Please fill in all required fields.');
       return;
     }
@@ -96,11 +75,9 @@ const AddMember: React.FC<AddMemberProps> = ({ onAddMember, members, plans, gymP
 
     const expiryDate = calculateExpiryDate(joinDateObj, selectedPlan.durationMonths);
     
-    const newMemberId = generateNextMemberId(members);
-    
     const newMember: Member = {
       id: `mem_${Date.now()}`,
-      memberId: newMemberId,
+      memberId: memberId,
       name,
       phone,
       email,
@@ -181,6 +158,17 @@ const AddMember: React.FC<AddMemberProps> = ({ onAddMember, members, plans, gymP
             className="w-full bg-zinc-800 border border-zinc-700 rounded-lg py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-red-500" 
           />
         </div>
+        <div>
+          <label htmlFor="memberId" className="block text-sm font-medium text-zinc-300 mb-1">Membership ID</label>
+          <input 
+            type="text" 
+            id="memberId" 
+            value={memberId} 
+            onChange={e => setMemberId(e.target.value)} 
+            required 
+            className="w-full bg-zinc-800 border border-zinc-700 rounded-lg py-2 px-3 text-white font-mono focus:outline-none focus:ring-2 focus:ring-red-500" 
+          />
+        </div>
       </div>
 
       {/* Membership Plan */}
@@ -224,13 +212,15 @@ const AddMember: React.FC<AddMemberProps> = ({ onAddMember, members, plans, gymP
                 <div className="mt-4 text-center bg-zinc-800 p-4 rounded-lg border border-zinc-700">
                     {gymProfile.upiId ? (
                        <>
-                            <p className="text-sm text-zinc-300 mb-3">Scan the QR code to pay</p>
-                            <canvas ref={qrCodeRef} width="220" height="220" className="mx-auto bg-white p-2 rounded-md shadow-lg"></canvas>
+                            <p className="text-sm text-zinc-300 mb-2">Pay using the UPI ID below:</p>
+                            <div className="bg-zinc-700 p-2 rounded-md">
+                                <p className="font-mono text-white select-all">{gymProfile.upiId}</p>
+                            </div>
                        </>
                     ) : (
                         <div className="text-sm text-yellow-400 p-2 rounded-md bg-yellow-900/50 border border-yellow-700">
                             <p className='font-semibold'>UPI ID not found.</p>
-                            <p className='text-xs mt-1'>Please add your UPI ID in the Profile section to generate QR codes.</p>
+                            <p className='text-xs mt-1'>Please add your UPI ID in the Profile section.</p>
                         </div>
                     )}
                 </div>

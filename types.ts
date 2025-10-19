@@ -32,6 +32,8 @@ export interface MembershipPlan {
 }
 
 export interface GymProfile {
+    gymName: string;
+    gymAddress: string;
     email: string;
     whatsappNumber: string;
     bankAccount: string;
